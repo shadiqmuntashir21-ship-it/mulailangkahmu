@@ -384,3 +384,115 @@ button{color:inherit}
   .choice-summary .choice-bars{grid-template-columns:1fr}
   .reflection-live-preview .bubble-wall.compact .answer-bubble:nth-child(n+5){display:none}
 }
+
+
+/* ===== FINAL RUN POLISH ===== */
+.brand--text{
+  display:inline-grid!important;
+  gap:2px!important;
+  width:max-content!important;
+  min-width:0!important;
+  min-height:0!important;
+  line-height:1!important;
+  overflow:visible!important
+}
+.brand--text strong{
+  font-size:20px;
+  line-height:1;
+  letter-spacing:-.055em;
+  font-weight:900;
+  color:#17191d
+}
+.brand--text span{
+  margin:0!important;
+  padding:0!important;
+  font-size:7px!important;
+  letter-spacing:.42em!important;
+  font-weight:900!important;
+  color:#9a7a49!important
+}
+.brand--compact strong{font-size:17px}
+.brand--compact span{font-size:6px!important}
+.brand img,.brand--text img{display:none!important}
+
+.stage-header{
+  min-height:76px;
+  padding:10px 16px;
+  border-radius:19px;
+  background:rgba(255,253,249,.96);
+  border-color:rgba(32,29,25,.075);
+  box-shadow:0 9px 28px rgba(31,28,24,.05)
+}
+.stage-header:before{
+  content:"";
+  position:absolute;
+  left:16px;
+  bottom:-1px;
+  width:72px;
+  height:2px;
+  border-radius:999px;
+  background:linear-gradient(90deg,#8b6c40,#d5ba83)
+}
+.stage-meta>span:first-child{
+  background:#f0ebe3;
+  border:1px solid rgba(130,105,67,.08)
+}
+.presenter-link{transition:transform .12s ease,background .12s ease}
+.presenter-link:active{transform:scale(.97)}
+
+.scene{animation:sceneInFast .2s cubic-bezier(.2,.8,.2,1) both}
+@keyframes sceneInFast{
+  from{opacity:.35;transform:translateY(3px)}
+  to{opacity:1;transform:none}
+}
+.stage-canvas{will-change:contents}
+.presenter-controls,.stage-jump-nav{transition:none!important}
+.presenter-controls button,.stage-jump-nav button{
+  transition:background .1s ease,color .1s ease,transform .08s ease!important
+}
+.presenter-controls button:active,.stage-jump-nav button:active{transform:scale(.96)}
+.presenter-controls.is-on:before{
+  content:"";
+  width:6px;height:6px;border-radius:50%;
+  background:#a98752;
+  box-shadow:0 0 0 5px rgba(169,135,82,.08);
+  margin-left:2px
+}
+.stage-jump-nav button.active{box-shadow:0 5px 14px rgba(17,20,24,.14)}
+
+.opening-copy,.regional-head,.weeks-head,.rhythm-copy,.reflection-intro,.question-copy,.commit-copy{
+  position:relative
+}
+.opening-copy:after,.regional-head:after,.weeks-head>div:first-child:after,.rhythm-copy:after,.reflection-intro:after,.question-copy:after,.commit-copy:after{
+  content:"";
+  display:block;
+  width:54px;height:2px;
+  margin-top:22px;
+  background:linear-gradient(90deg,#8b6c40,#d5ba83);
+  border-radius:999px
+}
+.event-chip,.eyebrow{letter-spacing:.14em}
+.agenda-board,.week-detail-rich,.reflection-join-card,.live-answer-stage,.road-builder{
+  box-shadow:0 24px 66px rgba(31,28,24,.085)
+}
+.agenda-item{transition:background .12s ease}
+.agenda-item:hover{background:#faf6ef}
+.week-grid button{transition:transform .1s ease,border-color .1s ease,background .1s ease!important}
+.week-grid button:active{transform:scale(.985)}
+.answer-bubble{animation-duration:.22s!important}
+.loader-brand{display:none}
+.premium-loader{gap:17px}
+.premium-loader:before{
+  content:"ETOS ID PALU";
+  font-size:11px;
+  font-weight:900;
+  letter-spacing:.22em;
+  color:#665f56
+}
+
+@media(max-width:700px){
+  .stage-header{min-height:58px;padding:8px 10px}
+  .brand--compact strong{font-size:14px}
+  .brand--compact span{font-size:5px!important}
+  .stage-meta{gap:6px}
+}
