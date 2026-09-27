@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { createClient } from '@supabase/supabase-js'
-import { ROOM_CODE, scenes, prompts, growthOptions, weeks, regionalMilestones, rhythms } from './data'
+import { ROOM_CODE, scenes, prompts, growthOptions, weeks, regionalAgenda, regionalStats, asramaStats, rhythms } from './data'
 import './styles.css'
 
 const SUPABASE_URL = 'https://souakvmuoygvsugxmpwd.supabase.co'
@@ -11,7 +11,7 @@ const cx = (...xs) => xs.filter(Boolean).join(' ')
 
 function Brand({compact=false}) {
   return <div className={cx('brand', compact && 'brand--compact')}>
-    <img src="/etos-id.png" alt="ETOS ID" decoding="async" fetchPriority="high" />
+    <img src="/etos-id-full.png?v=20260927-2" alt="ETOS ID" decoding="async" fetchPriority="high" />
     <span>Palu</span>
   </div>
 }
@@ -361,14 +361,54 @@ function StatementScene({eyebrow,lines,accent}) {
 
 function TwoSpacesScene(){return <div className="scene two-spaces"><div className="two-title"><span className="eyebrow">SATU PERJALANAN</span><h2>Dua ruang untuk bertumbuh.</h2></div><div className="split-path"><div className="space-card"><span>01</span><h3>Pembinaan Wilayah</h3><p>Ruang bertumbuh.</p><small>Pembinaan memberi arah.</small></div><div className="path-knot"><i/><b>ETOS<br/>ID PALU</b></div><div className="space-card"><span>02</span><h3>Kehidupan Asrama</h3><p>Ruang pembiasaan.</p><small>Asrama membuatnya menjadi kebiasaan.</small></div></div></div>}
 
-function RegionalScene(){return <div className="scene regional-scene"><div className="regional-head"><span className="eyebrow">PEMBINAAN WILAYAH · SEP—DES 2026</span><h2>Peta perjalanan besar kita.</h2></div><div className="timeline">{regionalMilestones.map(([tag,title],i)=><div className="milestone" key={tag}><span>{String(i+1).padStart(2,'0')}</span><i/><div><small>{tag}</small><strong>{title}</strong></div></div>)}</div></div>}
-
-function TenWeeksScene(){
-  const [selected,setSelected]=useState(4)
-  return <div className="scene ten-weeks"><div className="weeks-head"><div><span className="eyebrow">SILABUS ASRAMA · 10 PEKAN</span><h2>Karakter dibangun<br/>sedikit demi sedikit.</h2></div><div className="weeks-summary"><strong>10</strong><span>pekan<br/>aktif</span><i/><strong>50</strong><span>sesi<br/>inti</span></div></div><div className="week-grid">{weeks.map((w,i)=><button key={w.n} onClick={()=>setSelected(i)} className={cx(i===selected&&'active')}><span>{w.n}</span><strong>{w.title}</strong><small>{w.desc}</small></button>)}</div><div className="week-detail"><span>PEKAN {weeks[selected].n}</span><strong>{weeks[selected].title}</strong><p>{weeks[selected].desc}</p><div><b>Kajian Islam</b><b>Sharing Knowledge</b><b>Bedah Biografi / Vocab</b><b>Tahsin / Tahfizh</b></div></div></div>
+function RegionalScene(){
+  const months=['September','Oktober','November','Desember']
+  const [month,setMonth]=useState('Oktober')
+  const items=regionalAgenda.filter(x=>x.month===month)
+  return <div className="scene regional-scene regional-detailed">
+    <div className="regional-head">
+      <span className="eyebrow">SILABUS PEMBINAAN WILAYAH · PALU</span>
+      <h2>Jadwalnya harus<br/>terlihat jelas.</h2>
+      <p>Tanggal, jam, bentuk kegiatan, dan siapa yang terlibat—langsung dari satu layar.</p>
+      <div className="regional-stats">{regionalStats.map(s=><div key={s.label}><strong>{s.value}</strong><span>{s.label}</span></div>)}</div>
+      <div className="month-tabs">{months.map(m=><button key={m} className={cx(month===m&&'active')} onClick={()=>setMonth(m)}>{m}</button>)}</div>
+    </div>
+    <div className="agenda-board">
+      <div className="agenda-board-head"><span>{month.toUpperCase()} 2026</span><b>{items.length} agenda ditampilkan</b></div>
+      <div className="agenda-list">{items.map((item,i)=><article className="agenda-item" key={item.date+item.title}>
+        <div className="agenda-no">{String(i+1).padStart(2,'0')}</div>
+        <div className="agenda-main"><small>{item.type}</small><h3>{item.title}</h3><p>{item.speaker}</p></div>
+        <div className="agenda-when"><strong>{item.date}</strong><span>{item.time}</span></div>
+      </article>)}</div>
+      <div className="agenda-note">Project/Tematik Nasional tidak dimasukkan ke tampilan utama ini agar fokus pada silabus pembinaan Palu.</div>
+    </div>
+  </div>
 }
 
-function RhythmScene(){return <div className="scene rhythm-scene"><div className="rhythm-copy"><span className="eyebrow">BUKAN HANYA “SESI”</span><h2>Pembinaan bukan hanya<br/>apa yang kita pelajari.</h2><h3>Tapi apa yang kita biasakan.</h3></div><div className="rhythm-orbit"><div className="rhythm-center">RITME<br/>ASRAMA</div>{rhythms.map((r,i)=><span key={r} style={{'--i':i}}>{r}</span>)}</div></div>}
+function TenWeeksScene(){
+  const [selected,setSelected]=useState(0)
+  const week=weeks[selected]
+  return <div className="scene ten-weeks ten-weeks-detailed">
+    <div className="weeks-head">
+      <div><span className="eyebrow">SILABUS ASRAMA · 27 SEP—12 DES 2026</span><h2>10 pekan.<br/>50 sesi inti.</h2><p>Klik pekan untuk melihat tanggal, agenda, materi, dan PIC. Jam sesi inti tidak dibakukan pada silabus Palu dan mengikuti kesepakatan ritme asrama.</p></div>
+      <div className="asrama-stat-strip">{asramaStats.map(s=><div key={s.label}><strong>{s.value}</strong><span>{s.label}</span></div>)}</div>
+    </div>
+    <div className="week-grid">{weeks.map((w,i)=><button key={w.n} onClick={()=>setSelected(i)} className={cx(i===selected&&'active')}><span>PEKAN {w.n}</span><strong>{w.title}</strong><small>{w.range}</small></button>)}</div>
+    <div className="week-detail week-detail-rich">
+      <div className="week-detail-head"><div><span>PEKAN {week.n} · {week.range}</span><strong>{week.title}</strong><p>{week.desc}</p></div><b>5 SESI</b></div>
+      <div className="session-list">{week.sessions.map((s,i)=><div className="session-row" key={s.date+s.agenda}>
+        <span>{String(i+1).padStart(2,'0')}</span>
+        <div><small>{s.date} · {s.agenda}</small><strong>{s.topic}</strong><p>{s.pic}</p></div>
+      </div>)}</div>
+      {selected===9 && <div className="closing-note"><b>12 Des 2026</b><span>Closing & Portfolio Review · Fasilitator + seluruh Awardee</span></div>}
+    </div>
+  </div>
+}
+
+function RhythmScene(){return <div className="scene rhythm-scene rhythm-detailed">
+  <div className="rhythm-copy"><span className="eyebrow">RITME KEHIDUPAN ASRAMA</span><h2>Bukan cuma sesi.<br/>Ada ritme yang diulang.</h2><h3>Frekuensinya terlihat jelas.</h3><p>Aktivitas berikut berjalan di luar 50 sesi inti dan menjadi habit formation selama semester.</p></div>
+  <div className="rhythm-grid">{rhythms.map((r,i)=><div className="rhythm-card" key={r.name}><span>{String(i+1).padStart(2,'0')}</span><div><strong>{r.name}</strong><b>{r.frequency}</b><small>{r.pic}</small></div></div>)}</div>
+</div>}
 
 function ValuesScene(){return <div className="scene values-scene"><span className="eyebrow">NILAI YANG KITA BANGUN</span><div className="value-word"><span>01</span><h2>Integritas</h2><p>Siapa kita ketika tidak ada yang melihat.</p></div><div className="value-word"><span>02</span><h2>Profesional</h2><p>Bagaimana kita mengelola diri, ilmu, amanah, dan tanggung jawab.</p></div><div className="value-word"><span>03</span><h2>Transformatif</h2><p>Bagaimana pertumbuhan kita menghadirkan manfaat bagi orang lain.</p></div><div className="values-final">Bertumbuh bukan untuk diri sendiri. <strong>Bertumbuh untuk berdampak.</strong></div></div>}
 
