@@ -130,12 +130,18 @@ function StageApp() {
     let active=true
     import('qrcode').then(({default:QRCode})=>QRCode.toDataURL(
       `${location.origin}/join?room=${ROOM_CODE}`,
-      {margin:1,width:640,errorCorrectionLevel:'M',color:{dark:'#07543a',light:'#ffffff'}}
+      {margin:1,width:680,errorCorrectionLevel:'M',color:{dark:'#111418',light:'#ffffff'}}
     )).then(url=>{if(active)setQr(url)}).catch(console.error)
     return()=>{active=false}
   },[])
 
   const left = useCountdown(state?.timer_end)
+  const scene = state?.scene || 'welcome'
+  const byPrompt = key => submissions.filter(s=>s.prompt_key===key)
+  const currentIndex = Math.max(0, scenes.findIndex(s=>s.id===scene))
+  const current = scenes[currentIndex] || scenes[0]
+  const joinIndex = scenes.findIndex(s=>s.id==='reflection_join')
+  const interactiveStarted = currentIndex >= joinIndex
 
   const stageControl = async(action,payload={}) => {
     if(!presenterPin){
@@ -166,16 +172,8 @@ function StageApp() {
     }
   }
 
-  if (error) return <ErrorCard message={error}/>
-  if (!event || !state) return <Loader label="Menghubungkan layar utama…"/>
-
-  const scene = state.scene || 'welcome'
-  const byPrompt = key => submissions.filter(s=>s.prompt_key===key)
-  const currentIndex = Math.max(0, scenes.findIndex(s=>s.id===scene))
-  const current = scenes[currentIndex] || scenes[0]
-  const interactiveStarted = currentIndex >= scenes.findIndex(s=>s.id==='reflection_join')
-
   const selectScene = async(index) => {
+    if(!state || !event) return
     const nextIndex=Math.max(0,Math.min(scenes.length-1,index))
     const next=scenes[nextIndex]
     if(!presenterPin){setShowPresenterLogin(true);return}
@@ -189,19 +187,21 @@ function StageApp() {
   }
 
   useEffect(()=>{
-    if(!presenterPin) return
+    if(!presenterPin || !state) return
     const onKey=(e)=>{
-      if(e.target?.tagName==='INPUT') return
+      if(['INPUT','TEXTAREA','BUTTON'].includes(e.target?.tagName)) return
       if(e.key==='ArrowRight' || e.key===' ' || e.key==='PageDown'){
-        e.preventDefault();selectScene(currentIndex+1)
+        e.preventDefault()
+        selectScene(currentIndex+1)
       }
       if(e.key==='ArrowLeft' || e.key==='PageUp'){
-        e.preventDefault();selectScene(currentIndex-1)
+        e.preventDefault()
+        selectScene(currentIndex-1)
       }
     }
     window.addEventListener('keydown',onKey)
     return()=>window.removeEventListener('keydown',onKey)
-  },[presenterPin,currentIndex,state.interaction_open,state.interaction_key])
+  },[presenterPin,currentIndex,state?.interaction_open,state?.interaction_key,state?.event_id])
 
   const unlockPresenter=async()=>{
     setPresenterError('')
@@ -217,6 +217,9 @@ function StageApp() {
     }catch(e){setPresenterError('PIN presenter tidak valid.')}
   }
 
+  if (error) return <ErrorCard message={error}/>
+  if (!event || !state) return <Loader label="Menghubungkan layar utama…"/>
+
   return <Shell stage>
     <header className="stage-header">
       <Brand compact/>
@@ -224,7 +227,7 @@ function StageApp() {
         <span>SEMESTER 2 · 2026</span>
         <i/>
         <span>{interactiveStarted ? `${participants.length} Etoser bergabung` : 'PEMBUKAAN PEMBINAAN'}</span>
-        <button className="presenter-link" onClick={()=>setShowPresenterLogin(true)}>{presenterPin?'PRESENTER ON':'PRESENTER'}</button>
+        <button className="presenter-link" onClick={()=>setShowPresenterLogin(true)}>{presenterPin?'PRESENTER ON':'AKTIFKAN PRESENTER'}</button>
       </div>
     </header>
 
@@ -257,14 +260,20 @@ function StageApp() {
       <button disabled={currentIndex===scenes.length-1||presenterBusy} onClick={()=>selectScene(currentIndex+1)} aria-label="Berikutnya">→</button>
     </div>
 
+    {presenterPin && <nav className="stage-jump-nav" aria-label="Pilih tahapan">
+      {scenes.map((s,i)=><button key={s.id} className={cx(i===currentIndex&&'active')} onClick={()=>selectScene(i)} title={s.label}>
+        <span>{String(i+1).padStart(2,'0')}</span><b>{s.label}</b>
+      </button>)}
+    </nav>}
+
     {left>0 && <div className="timer-pill">{left}</div>}
 
     {showPresenterLogin && <div className="presenter-modal" onClick={()=>setShowPresenterLogin(false)}>
       <div className="presenter-dialog" onClick={e=>e.stopPropagation()}>
         <Brand compact/>
         <span className="eyebrow">PRESENTER MODE</span>
-        <h3>Kontrol langsung dari layar ini.</h3>
-        <p>Masukkan PIN sekali. Setelah itu gunakan tombol panah di layar, ← → keyboard, atau Space untuk lanjut.</p>
+        <h3>Semua tahapan bisa dikontrol dari layar.</h3>
+        <p>Masukkan PIN sekali. Setelah itu klik tahapan mana pun, gunakan tombol ← →, atau tekan Space untuk lanjut.</p>
         <input autoFocus inputMode="numeric" type="password" value={draftPin} onChange={e=>setDraftPin(e.target.value)} onKeyDown={e=>e.key==='Enter'&&unlockPresenter()} placeholder="PIN moderator"/>
         {presenterError&&<div className="presenter-error">{presenterError}</div>}
         <div className="presenter-dialog-actions">
