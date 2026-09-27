@@ -84,10 +84,11 @@ function useLiveEvent({withData=false}={}) {
           }).subscribe()
         timer = setInterval(async()=>{
           try {
-            const fresh = await getState(ev.id); if (active) setState(fresh)
+            const [freshEvent, freshState] = await Promise.all([getEvent(), getState(ev.id)])
+            if (active) { setEvent(freshEvent); setState(freshState) }
             if (withData) await refreshData()
           } catch (e) { console.error(e) }
-        }, 3500)
+        }, 3000)
       } catch (e) { if (active) setError(e.message || 'Gagal terhubung') }
     })()
     return ()=>{ active=false; if(channel) supabase.removeChannel(channel); if(timer) clearInterval(timer) }
