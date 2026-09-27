@@ -117,12 +117,12 @@ function StageApp() {
   const {event,state,participants,submissions,error} = useLiveEvent({withData:true})
   const [qr,setQr] = useState('')
   useEffect(()=>{ QRCode.toDataURL(`${location.origin}/join?room=${ROOM_CODE}`, {margin:1,width:360,color:{dark:'#0b5138',light:'#ffffff'}}).then(setQr) },[])
+  const left = useCountdown(state?.timer_end)
   if (error) return <ErrorCard message={error}/>
   if (!event || !state) return <Loader label="Menghubungkan layar utama…"/>
   const scene = state.scene || 'welcome'
   const byPrompt = key => submissions.filter(s=>s.prompt_key===key)
   const current = scenes.find(s=>s.id===scene) || scenes[0]
-  const left = useCountdown(state.timer_end)
   return <Shell stage>
     <header className="stage-header"><Brand compact/><div className="stage-meta"><span>SEMESTER 2 · 2026</span><i/><span>{participants.length} Etoser bergabung</span></div></header>
     <section className="stage-canvas" key={`${scene}-${state.revision}`}>
