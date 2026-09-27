@@ -383,7 +383,20 @@ function ParticipantApp(){
   const prompt = state?.interaction_key ? prompts[state.interaction_key] : null
   const [answer,setAnswer]=useState('')
   useEffect(()=>{setAnswer('');setNotice('')},[state?.interaction_key,state?.interaction_open])
-  useEffect(()=>{if(!profile)return; const t=setInterval(()=>supabase.rpc('etos_palu_touch',{p_participant_id:profile.participant_id,p_client_token:profile.client_token}),15000); return()=>clearInterval(t)},[profile])
+  useEffect(()=>{
+    if(!profile)return
+    let active=true
+    const touch=async()=>{
+      const {data}=await supabase.rpc('etos_palu_touch',{p_participant_id:profile.participant_id,p_client_token:profile.client_token})
+      if(active && data===false){
+        localStorage.removeItem('etos_palu_profile')
+        setProfile(null)
+      }
+    }
+    touch()
+    const t=setInterval(touch,15000)
+    return()=>{active=false;clearInterval(t)}
+  },[profile])
   const join=async e=>{
     e.preventDefault();setSending(true);setNotice('')
     try{
