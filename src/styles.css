@@ -694,3 +694,12 @@ button{color:inherit}
   .reflection-join-meta h3{font-size:52px}.reflection-join-meta p{font-size:7px}.reflection-join-meta>span{font-size:6px}
   .reflection-join-foot{font-size:7px;padding-top:11px}
 }
+
+@keyframes journeySweep{
+  0%{width:7%;opacity:.55}
+  45%{width:48%;opacity:1}
+  100%{width:83%;opacity:.72}
+}
+.journey-progress{animation:journeySweep 5.2s ease-in-out infinite alternate}
+.journey-node.active:before{animation:journeyPulse 1.6s ease-in-out infinite alternate}
+@keyframes journeyPulse{to{box-shadow:0 0 0 12px rgba(168,239,145,.11)}}
