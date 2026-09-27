@@ -21,9 +21,9 @@ const responseValues = (submission, prompt) => {
 }
 
 function Brand({compact=false}) {
-  return <div className={cx('brand', compact && 'brand--compact')}>
-    <img src="/etos-id-official.png?v=20260927-1106" alt="ETOS ID" width="703" height="236" decoding="async" fetchPriority="high" />
-    <span>Palu</span>
+  return <div className={cx('brand','brand--text', compact && 'brand--compact')} aria-label="ETOS ID Palu">
+    <strong>ETOS ID</strong>
+    <span>PALU</span>
   </div>
 }
 
@@ -90,7 +90,6 @@ function useLiveEvent({withData=false}={}) {
           .on('postgres_changes', {event:'UPDATE', schema:'public', table:'etos_palu_live_state', filter:`event_id=eq.${ev.id}`}, payload => {
             if (!active) return
             setState(payload.new)
-            if (withData) refreshData()
           })
         if (withData) {
           liveChannel = liveChannel
@@ -108,7 +107,7 @@ function useLiveEvent({withData=false}={}) {
             if (active) { setEvent(freshEvent); setState(freshState) }
             if (withData) await refreshData()
           } catch (e) { console.error(e) }
-        }, withData ? 2400 : 5000)
+        }, withData ? 15000 : 12000)
       } catch (e) { if (active) setError(e.message || 'Gagal terhubung') }
     })()
     return ()=>{ active=false; if(channel) supabase.removeChannel(channel); if(timer) clearInterval(timer) }
@@ -146,6 +145,7 @@ function StageApp() {
   const [draftPin,setDraftPin] = useState('')
   const [presenterBusy,setPresenterBusy] = useState(false)
   const [presenterError,setPresenterError] = useState('')
+  const [optimisticScene,setOptimisticScene] = useState(null)
 
   useEffect(()=>{
     let active=true
@@ -157,12 +157,16 @@ function StageApp() {
   },[])
 
   const left = useCountdown(state?.timer_end)
-  const scene = state?.scene || 'welcome'
+  const scene = optimisticScene || state?.scene || 'welcome'
   const byPrompt = key => submissions.filter(s=>s.prompt_key===key)
   const currentIndex = Math.max(0, scenes.findIndex(s=>s.id===scene))
   const current = scenes[currentIndex] || scenes[0]
   const joinIndex = scenes.findIndex(s=>s.id==='reflection_join')
   const interactiveStarted = currentIndex >= joinIndex
+
+  useEffect(()=>{
+    if(optimisticScene && state?.scene===optimisticScene) setOptimisticScene(null)
+  },[state?.scene,optimisticScene])
 
   const stageControl = async(action,payload={}) => {
     if(!presenterPin){
@@ -198,12 +202,27 @@ function StageApp() {
     const nextIndex=Math.max(0,Math.min(scenes.length-1,index))
     const next=scenes[nextIndex]
     if(!presenterPin){setShowPresenterLogin(true);return}
-    if(state.interaction_open && state.interaction_key !== next.interaction){
-      await stageControl('close_interaction')
-    }
-    await stageControl('set_scene',{scene:next.id})
-    if(next.interaction){
-      await stageControl('open_interaction',{interaction_key:next.interaction})
+    setOptimisticScene(next.id)
+    setPresenterBusy(true)
+    setPresenterError('')
+    try{
+      const {error}=await supabase.rpc('etos_palu_present_scene',{
+        p_event_code:ROOM_CODE,
+        p_pin:presenterPin,
+        p_scene:next.id,
+        p_interaction_key:next.interaction || null
+      })
+      if(error) throw error
+    }catch(e){
+      setOptimisticScene(null)
+      setPresenterError(e.message || 'Kontrol presenter gagal.')
+      if((e.message||'').toLowerCase().includes('pin')){
+        sessionStorage.removeItem('etos_palu_pin')
+        setPresenterPin('')
+        setShowPresenterLogin(true)
+      }
+    }finally{
+      setPresenterBusy(false)
     }
   }
 
@@ -252,7 +271,7 @@ function StageApp() {
       </div>
     </header>
 
-    <section className="stage-canvas" key={`${scene}-${state.revision}`}>
+    <section className="stage-canvas" key={scene}>
       {scene==='welcome' && <WelcomeScene/>}
       {scene==='journey_reveal' && <StatementScene eyebrow="ETOS ID PALU · SEMESTER 2 2026" lines={['Bukan sekadar rangkaian agenda.','Ini perjalanan untuk bertumbuh dan berdampak.']} accent="PERJALANAN KITA DIMULAI"/>}
       {scene==='two_spaces' && <TwoSpacesScene/>}
@@ -277,9 +296,9 @@ function StageApp() {
     </footer>
 
     <div className={cx('presenter-controls',presenterPin&&'is-on')}>
-      <button disabled={currentIndex===0||presenterBusy} onClick={()=>selectScene(currentIndex-1)} aria-label="Sebelumnya">←</button>
+      <button disabled={currentIndex===0} onClick={()=>selectScene(currentIndex-1)} aria-label="Sebelumnya">←</button>
       <span><small>PRESENTER</small><b>{current.label}</b></span>
-      <button disabled={currentIndex===scenes.length-1||presenterBusy} onClick={()=>selectScene(currentIndex+1)} aria-label="Berikutnya">→</button>
+      <button disabled={currentIndex===scenes.length-1} onClick={()=>selectScene(currentIndex+1)} aria-label="Berikutnya">→</button>
     </div>
 
     {presenterPin && <nav className="stage-jump-nav" aria-label="Pilih tahapan">
@@ -579,13 +598,17 @@ function ControlApp(){
   }
   if(!pin)return <Shell><div className="control-login"><Brand/><span className="eyebrow">CONTROL ROOM</span><h2>Masukkan PIN moderator</h2><input inputMode="numeric" type="password" value={draftPin} onChange={e=>setDraftPin(e.target.value)} placeholder="••••••"/><button onClick={()=>{sessionStorage.setItem('etos_palu_pin',draftPin);setPin(draftPin)}}>Masuk</button></div></Shell>
   const selectControlScene=async(next)=>{
-    if(state.interaction_open && state.interaction_key !== next.interaction){
-      await act('close_interaction')
-    }
-    await act('set_scene',{scene:next.id})
-    if(next.interaction){
-      await act('open_interaction',{interaction_key:next.interaction})
-    }
+    setBusy(true);setNotice('')
+    try{
+      const {error}=await supabase.rpc('etos_palu_present_scene',{
+        p_event_code:ROOM_CODE,
+        p_pin:pin,
+        p_scene:next.id,
+        p_interaction_key:next.interaction || null
+      })
+      if(error) throw error
+      setNotice('Tersimpan')
+    }catch(e){setNotice(e.message)}finally{setBusy(false)}
   }
   const move=dir=>{const next=scenes[Math.max(0,Math.min(scenes.length-1,sceneIndex+dir))];return selectControlScene(next)}
   const promptKey=scene.interaction
