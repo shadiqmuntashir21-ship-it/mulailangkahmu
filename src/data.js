@@ -41,18 +41,18 @@ export const rhythms = [
 ]
 
 export const scenes = [
-  { id: 'welcome', label: 'Welcome' },
-  { id: 'reflection', label: 'Refleksi Mikro', interaction: 'growth_start' },
-  { id: 'this_is_us', label: 'This Is Us' },
-  { id: 'journey_reveal', label: 'Reveal Journey' },
+  { id: 'welcome', label: 'Mulai Langkahmu' },
+  { id: 'journey_reveal', label: 'Perjalanan Semester' },
   { id: 'two_spaces', label: 'Dua Ruang Bertumbuh' },
   { id: 'regional', label: 'Pembinaan Wilayah' },
   { id: 'dorm_intro', label: 'Masuk Asrama' },
   { id: 'ten_weeks', label: '10 Pekan Asrama' },
   { id: 'rhythms', label: 'Ritme Kehidupan' },
   { id: 'values', label: '3 Nilai Besar' },
-  { id: 'growth_focus', label: 'Area Pertumbuhan', interaction: 'growth_focus' },
   { id: 'idp', label: 'IDP & Coaching' },
+  { id: 'reflection_join', label: 'Join & Refleksi', interaction: 'growth_start' },
+  { id: 'this_is_us', label: 'This Is Us' },
+  { id: 'growth_focus', label: 'Area Pertumbuhan', interaction: 'growth_focus' },
   { id: 'commitment', label: 'Langkah Pertama', interaction: 'commitment' },
   { id: 'finale', label: 'Final Reveal' }
 ]
