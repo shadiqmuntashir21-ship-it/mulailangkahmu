@@ -272,6 +272,25 @@ function ControlApp(){
 
 function Landing(){return <Shell><div className="landing"><Brand/><span className="eyebrow">ETOS ID PALU · SEMESTER 2 2026</span><h1>Mulai<br/><em>Langkahmu.</em></h1><p>Awal Langkah, Tumbuh Berdampak.</p><div className="landing-actions"><a href="/join?room=PALU26">Bergabung sebagai peserta</a><a className="secondary" href="/stage">Buka layar utama</a></div><small>Untuk fasilitator, buka <b>/control</b>.</small></div></Shell>}
 
+class ErrorBoundary extends React.Component {
+  constructor(props){
+    super(props)
+    this.state={error:null}
+  }
+  static getDerivedStateFromError(error){
+    return {error}
+  }
+  componentDidCatch(error,info){
+    console.error('ETOS UI error',error,info)
+  }
+  render(){
+    if(this.state.error){
+      return <ErrorCard message="Tampilan mengalami kendala. Muat ulang halaman; jika masih terjadi, buka Control Room dan kembalikan ke scene Welcome."/>
+    }
+    return this.props.children
+  }
+}
+
 function App(){
   const path=location.pathname
   if(path.startsWith('/stage'))return <StageApp/>
@@ -280,4 +299,4 @@ function App(){
   return <Landing/>
 }
 
-createRoot(document.getElementById('root')).render(<App/>)
+createRoot(document.getElementById('root')).render(<ErrorBoundary><App/></ErrorBoundary>)
