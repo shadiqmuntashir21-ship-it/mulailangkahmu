@@ -9,9 +9,20 @@ const SUPABASE_KEY = 'sb_publishable_--u2P-Gm5qaogeuV1KD05g_X3q1-eMA'
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
 const cx = (...xs) => xs.filter(Boolean).join(' ')
 
+const responseValues = (submission, prompt) => {
+  const raw = submission?.response_value || ''
+  if (!prompt?.multiple) return raw ? [raw] : []
+  try {
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? parsed.filter(Boolean) : [raw]
+  } catch {
+    return raw ? raw.split('|||').map(v=>v.trim()).filter(Boolean) : []
+  }
+}
+
 function Brand({compact=false}) {
   return <div className={cx('brand', compact && 'brand--compact')}>
-    <img src="/etos-id-full.png?v=20260927-2" alt="ETOS ID" decoding="async" fetchPriority="high" />
+    <img src="/etos-id-official.png?v=20260927-1106" alt="ETOS ID" width="703" height="236" decoding="async" fetchPriority="high" />
     <span>Palu</span>
   </div>
 }
@@ -75,12 +86,22 @@ function useLiveEvent({withData=false}={}) {
         const st = await getState(ev.id); if (!active) return
         setState(st)
         await refreshData()
-        channel = supabase.channel(`etos-palu-state-${ev.id}`)
+        let liveChannel = supabase.channel(`etos-palu-live-${ev.id}`)
           .on('postgres_changes', {event:'UPDATE', schema:'public', table:'etos_palu_live_state', filter:`event_id=eq.${ev.id}`}, payload => {
             if (!active) return
             setState(payload.new)
             if (withData) refreshData()
-          }).subscribe()
+          })
+        if (withData) {
+          liveChannel = liveChannel
+            .on('postgres_changes', {event:'*', schema:'public', table:'etos_palu_submissions', filter:`event_id=eq.${ev.id}`}, () => {
+              if (active) refreshData()
+            })
+            .on('postgres_changes', {event:'*', schema:'public', table:'etos_palu_participants', filter:`event_id=eq.${ev.id}`}, () => {
+              if (active) refreshData()
+            })
+        }
+        channel = liveChannel.subscribe()
         timer = setInterval(async()=>{
           try {
             const [freshEvent, freshState] = await Promise.all([getEvent(), getState(ev.id)])
@@ -242,9 +263,10 @@ function StageApp() {
       {scene==='values' && <ValuesScene/>}
       {scene==='idp' && <IdpScene/>}
       {scene==='reflection_join' && <ReflectionJoinScene qr={qr} participants={participants} submissions={byPrompt('growth_start')} open={state.interaction_open}/>}
-      {scene==='this_is_us' && <ClusterScene submissions={byPrompt('growth_start')} title="Inilah kita hari ini." subtitle="Bukan untuk dinilai. Ini titik keberangkatan kita."/>}
-      {scene==='growth_focus' && <QuestionScene prompt={prompts.growth_focus} submissions={byPrompt('growth_focus')} open={state.interaction_open} reveal={state.reveal}/>}
-      {scene==='commitment' && <CommitmentScene submissions={byPrompt('commitment')} open={state.interaction_open} reveal={state.reveal} spotlightId={state.spotlight_submission_id}/>}
+      {scene==='this_is_us' && <ClusterScene prompt={prompts.growth_start} submissions={byPrompt('growth_start')} title="Peta kebutuhan kita." subtitle="Setiap bulatan adalah satu respons anonim. Kita sedang melihat kebutuhan nyata di ruangan ini."/>}
+      {scene==='program_interest' && <QuestionScene prompt={prompts.program_interest} submissions={byPrompt('program_interest')} open={state.interaction_open} reveal={state.reveal}/>}
+      {scene==='support_needed' && <QuestionScene prompt={prompts.support_needed} submissions={byPrompt('support_needed')} open={state.interaction_open} reveal={state.reveal}/>}
+      {scene==='commitment' && <CommitmentScene prompt={prompts.commitment} submissions={byPrompt('commitment')} open={state.interaction_open} reveal={state.reveal} spotlightId={state.spotlight_submission_id}/>}
       {scene==='finale' && <FinaleScene participants={participants} commitments={byPrompt('commitment')}/>}
     </section>
 
@@ -313,12 +335,12 @@ function ReflectionJoinScene({qr,participants,submissions,open}) {
     <div className="reflection-intro">
       <span className="eyebrow">SEKARANG GILIRANMU</span>
       <h2>Kita sudah melihat<br/>perjalanannya.</h2>
-      <p>Sekarang masuk ke refleksi. Scan QR, tulis nama, dan pertanyaan pertama langsung muncul di HP-mu.</p>
+      <p>Scan QR, tulis nama, lalu pilih 2–3 area yang paling kamu butuhkan. Begitu jawaban masuk, bulatan respons anonim akan langsung tumbuh di layar.</p>
       <div className="reflection-question">
-        <small>PERTANYAAN 01</small>
+        <small>PERTANYAAN 01 · PILIH 2–3</small>
         <strong>{prompts.growth_start.title}</strong>
       </div>
-      <div className={cx('live-badge',open&&'is-live')}><i/>{open?'REFLEKSI DIBUKA':'MENYIAPKAN REFLEKSI'} · {submissions.length} JAWABAN</div>
+      <div className={cx('live-badge',open&&'is-live')}><i/>{open?'REFLEKSI DIBUKA':'MENYIAPKAN REFLEKSI'} · {submissions.length} RESPON</div>
     </div>
     <div className="reflection-join-card">
       <div className="reflection-qr">{qr ? <img src={qr} alt="QR untuk masuk refleksi"/> : <div className="qr-skeleton"/>}</div>
@@ -328,31 +350,68 @@ function ReflectionJoinScene({qr,participants,submissions,open}) {
         <p>Etoser sudah bergabung</p>
         <div><b>ROOM {ROOM_CODE}</b><i/></div>
       </div>
-      <div className="reflection-join-foot">Setelah bergabung, kamu langsung menjawab. Tidak perlu menunggu.</div>
+      <div className="reflection-join-foot">Setelah bergabung, pertanyaan pertama langsung terbuka. Jawaban tetap anonim di layar.</div>
+      {submissions.length>0 && <div className="reflection-live-preview">
+        <div className="live-preview-head"><span>RESPON MASUK LANGSUNG</span><b>{submissions.length}</b></div>
+        <BubbleWall prompt={prompts.growth_start} submissions={submissions} compact max={7}/>
+      </div>}
     </div>
   </div>
 }
 
-function ChoiceBars({submissions}) {
-  const counts = growthOptions.map(o=>({label:o,count:submissions.filter(s=>s.response_value===o).length}))
+function ChoiceBars({prompt,submissions}) {
+  const counts = (prompt.options||[]).map(o=>({
+    label:o,
+    count:submissions.reduce((n,s)=>n+(responseValues(s,prompt).includes(o)?1:0),0)
+  }))
   const max = Math.max(1,...counts.map(c=>c.count))
-  return <div className="choice-bars">{counts.map((c,i)=><div className="choice-row" key={c.label}><span className="choice-dot">0{i+1}</span><div><strong>{c.label}</strong><small>{c.count} orang</small></div><i style={{'--w':`${(c.count/max)*100}%`}}/></div>)}</div>
+  return <div className="choice-bars">{counts.map((c,i)=><div className="choice-row" key={c.label}><span className="choice-dot">{String(i+1).padStart(2,'0')}</span><div><strong>{c.label}</strong><small>{c.count} pilihan</small></div><i style={{'--w':`${(c.count/max)*100}%`}}/></div>)}</div>
 }
 
-function QuestionScene({prompt,submissions,open,reveal}) {
-  return <div className="scene question-scene">
-    <div className="question-copy"><span className="eyebrow">REFLEKSI BERSAMA</span><h2>{prompt.title}</h2><p>{open ? 'Jawab melalui HP-mu. Setelah itu, kembali lihat layar.' : 'Pertanyaan sedang ditutup. Perhatikan pola yang terbentuk.'}</p><div className={cx('live-badge',open&&'is-live')}><i/>{open?'RESPON DIBUKA':'RESPON DITUTUP'} · {submissions.length} MASUK</div></div>
-    <div className="question-results">{reveal ? <ChoiceBars submissions={submissions}/> : <Orbit submissions={submissions}/>}</div>
+function BubbleWall({prompt,submissions,compact=false,max=16}) {
+  const visible=submissions.slice(-max).reverse()
+  return <div className={cx('bubble-wall',compact&&'compact')}>
+    {visible.map((s,i)=>{
+      const vals=responseValues(s,prompt)
+      const label=vals.join(' · ')
+      return <div className={cx('answer-bubble',`bubble-size-${i%3}`)} key={s.id}>
+        <small>ANONIM · {String(submissions.length-i).padStart(2,'0')}</small>
+        <strong>{label}</strong>
+      </div>
+    })}
+    {!visible.length && <div className="bubble-empty"><i/><span>Jawaban akan muncul di sini secara live.</span></div>}
   </div>
 }
 
-function Orbit({submissions}) {
-  return <div className="orbit"><div className="orbit-core"><strong>{submissions.length}</strong><span>respons</span></div>{submissions.slice(0,42).map((s,i)=><i key={s.id} style={{'--i':i,'--n':Math.max(1,submissions.length)}}/> )}</div>
+function QuestionScene({prompt,submissions,open,reveal}) {
+  const isChoice=prompt.type==='choice'
+  return <div className="scene question-scene">
+    <div className="question-copy">
+      <span className="eyebrow">{isChoice?'REFLEKSI BERSAMA':'SUARA DARI RUANGAN'}</span>
+      <h2>{prompt.title}</h2>
+      <p>{open ? (prompt.multiple ? 'Pilih 2–3 jawaban di HP-mu. Respons anonim akan muncul langsung di layar.' : 'Jawab melalui HP-mu. Respons anonim akan muncul langsung di layar.') : 'Respons ditutup. Sekarang lihat pola yang terbentuk.'}</p>
+      <div className={cx('live-badge',open&&'is-live')}><i/>{open?'RESPON DIBUKA':'RESPON DITUTUP'} · {submissions.length} MASUK</div>
+    </div>
+    <div className="question-results live-answer-stage">
+      <BubbleWall prompt={prompt} submissions={submissions} max={14}/>
+      {isChoice && reveal && <div className="choice-summary"><span>RINGKASAN PILIHAN</span><ChoiceBars prompt={prompt} submissions={submissions}/></div>}
+    </div>
+  </div>
 }
 
-function ClusterScene({submissions,title,subtitle}) {
-  const counts = growthOptions.map((o,i)=>({label:o,count:submissions.filter(s=>s.response_value===o).length,i})).sort((a,b)=>b.count-a.count)
-  return <div className="scene cluster-scene"><div className="cluster-head"><span className="eyebrow">TITIK KEBERANGKATAN</span><h2>{title}</h2><p>{subtitle}</p></div><div className="clusters">{counts.map((c,i)=><div className="cluster" key={c.label} style={{'--scale':.8+Math.min(c.count,10)*.055,'--delay':`${i*80}ms`}}><strong>{c.count}</strong><span>{c.label}</span></div>)}</div></div>
+function ClusterScene({prompt,submissions,title,subtitle}) {
+  const counts = growthOptions.map((o,i)=>({
+    label:o,
+    count:submissions.reduce((n,s)=>n+(responseValues(s,prompt).includes(o)?1:0),0),
+    i
+  })).sort((a,b)=>b.count-a.count)
+  return <div className="scene cluster-scene">
+    <div className="cluster-head"><span className="eyebrow">TITIK KEBERANGKATAN</span><h2>{title}</h2><p>{subtitle}</p></div>
+    <div className="cluster-results">
+      <div className="clusters">{counts.map((c,i)=><div className="cluster" key={c.label} style={{'--scale':.82+Math.min(c.count,10)*.045,'--delay':`${i*80}ms`}}><strong>{c.count}</strong><span>{c.label}</span></div>)}</div>
+      <BubbleWall prompt={prompt} submissions={submissions} compact max={8}/>
+    </div>
+  </div>
 }
 
 function StatementScene({eyebrow,lines,accent}) {
@@ -414,10 +473,16 @@ function ValuesScene(){return <div className="scene values-scene"><span classNam
 
 function IdpScene(){return <div className="scene idp-scene"><div className="idp-map"><span className="idp-dot a">DIRI HARI INI</span><span className="idp-line"/><span className="idp-dot b">IDP</span><span className="idp-line"/><span className="idp-dot c">COACHING</span><span className="idp-line"/><span className="idp-dot d">DIRI YANG BERTUMBUH</span></div><div className="idp-copy"><span className="eyebrow">PERJALANAN PERSONAL</span><h2>Setiap Etoser punya<br/>peta pertumbuhannya sendiri.</h2><p>IDP bukan sekadar administrasi. Ia adalah peta personal di dalam perjalanan besar ETOS.</p></div></div>}
 
-function CommitmentScene({submissions,open,reveal,spotlightId}) {
+function CommitmentScene({prompt,submissions,open,reveal,spotlightId}) {
   const spotlight = submissions.find(s=>s.id===spotlightId)
-  if (spotlight) return <div className="scene spotlight-scene"><span className="eyebrow">SATU LANGKAH YANG BERARTI</span><blockquote>“{spotlight.response_value}”</blockquote><p>{spotlight.display_name || 'Anonim'}</p></div>
-  return <div className="scene commitment-scene"><div className="commit-copy"><span className="eyebrow">SATU PERTANYAAN TERAKHIR</span><h2>Apa satu langkah kecil<br/>yang akan kamu mulai?</h2><p>{open?'Tulis satu tindakan nyata melalui HP-mu.':'Respons ditutup. Sekarang lihat jalan yang kita bangun bersama.'}</p><div className={cx('live-badge',open&&'is-live')}><i/>{submissions.length} LANGKAH MASUK</div></div><div className="road-builder"><div className="road"><i style={{'--progress':`${Math.min(100,submissions.length*4)}%`}}/></div><div className="commit-cloud">{(reveal?submissions.slice(-8):submissions.slice(-4)).map((s,i)=><span key={s.id} style={{'--i':i}}>{reveal?s.response_value:'•'}</span>)}</div></div></div>
+  if (spotlight) return <div className="scene spotlight-scene"><span className="eyebrow">SATU LANGKAH YANG BERARTI</span><blockquote>“{spotlight.response_value}”</blockquote><p>Anonim</p></div>
+  return <div className="scene commitment-scene">
+    <div className="commit-copy"><span className="eyebrow">PERTANYAAN PENUTUP</span><h2>{prompt.title}</h2><p>{open?'Tulis satu tindakan nyata melalui HP-mu. Setiap jawaban akan muncul anonim di layar.':'Respons ditutup. Lihat langkah-langkah yang mulai terbentuk.'}</p><div className={cx('live-badge',open&&'is-live')}><i/>{submissions.length} LANGKAH MASUK</div></div>
+    <div className="road-builder commitment-live">
+      <div className="road"><i style={{'--progress':`${Math.min(100,submissions.length*4)}%`}}/></div>
+      <BubbleWall prompt={prompt} submissions={submissions} max={12}/>
+    </div>
+  </div>
 }
 
 function FinaleScene({participants,commitments}){return <div className="scene finale-scene"><div className="final-path"><div className="final-logo"><Brand/></div>{participants.slice(0,40).map((p,i)=><i key={p.id} style={{'--i':i}}/> )}</div><div className="final-copy"><span className="eyebrow">ETOS ID PALU · 2026</span><h2><strong>{participants.length}</strong> Etoser.<br/><strong>{commitments.length}</strong> langkah pertama.<br/>Satu perjalanan bersama.</h2><p>Awal Langkah, <b>Tumbuh Berdampak.</b></p></div></div>}
@@ -431,7 +496,8 @@ function ParticipantApp(){
   const [notice,setNotice]=useState('')
   const prompt = state?.interaction_key ? prompts[state.interaction_key] : null
   const [answer,setAnswer]=useState('')
-  useEffect(()=>{setAnswer('');setNotice('')},[state?.interaction_key,state?.interaction_open])
+  const [selectedChoices,setSelectedChoices]=useState([])
+  useEffect(()=>{setAnswer('');setSelectedChoices([]);setNotice('')},[state?.interaction_key,state?.interaction_open])
   useEffect(()=>{
     if(!profile)return
     let active=true
@@ -459,20 +525,36 @@ function ParticipantApp(){
   }
   const submit=async value=>{
     if(!profile||!prompt)return
-    const v=value??answer
+    let v=value??answer
+    if(prompt.multiple){
+      if(selectedChoices.length<(prompt.minSelections||1) || selectedChoices.length>(prompt.maxSelections||3)){
+        setNotice(`Pilih ${prompt.minSelections||1}–${prompt.maxSelections||3} jawaban dulu.`)
+        return
+      }
+      v=JSON.stringify(selectedChoices)
+    }
     if(!v)return
     setSending(true);setNotice('')
     try{
       const {error}=await supabase.rpc('etos_palu_submit',{p_participant_id:profile.participant_id,p_client_token:profile.client_token,p_prompt_key:prompt.key,p_response_type:prompt.type,p_response_value:v,p_is_anonymous:prompt.anonymous})
       if(error)throw error
-      setNotice('Terkirim');setAnswer('')
+      setNotice('Terkirim');setAnswer('');setSelectedChoices([])
     }catch(e){setNotice(e.message)}finally{setSending(false)}
+  }
+
+  const toggleChoice=value=>{
+    setNotice('')
+    setSelectedChoices(current=>{
+      if(current.includes(value)) return current.filter(v=>v!==value)
+      if(current.length>=(prompt?.maxSelections||3)) return current
+      return [...current,value]
+    })
   }
   if(error)return <ErrorCard message={error}/>
   if(!event||!state)return <Loader label="Membuka ruang ETOS ID Palu…"/>
   if(!profile)return <Shell><div className="mobile-wrap"><Brand/><div className="join-hero"><span className="eyebrow">PEMBUKAAN PEMBINAAN · 2026</span><h1>Mulai<br/><em>Langkahmu.</em></h1><p>Masuk ke perjalanan ETOS ID Palu.</p></div><form className="join-form" onSubmit={join}><label>Nama / panggilan<input value={name} onChange={e=>setName(e.target.value)} maxLength={40} placeholder="Tulis namamu" required/></label><label>Angkatan <small>(opsional)</small><input value={cohort} onChange={e=>setCohort(e.target.value)} maxLength={30} placeholder="Contoh: ETOS 2026"/></label><button disabled={sending}>{sending?'Menghubungkan…':'Bergabung'}</button>{notice&&<p className="form-note">{notice}</p>}</form></div></Shell>
   if(event.status==='ended')return <Shell><div className="mobile-wrap mobile-center"><Brand/><span className="eyebrow">PERJALANAN HARI INI SELESAI</span><h2>Terima kasih sudah mengambil langkah pertama.</h2><p>Sampai jumpa di perjalanan pembinaan ETOS ID Palu berikutnya.</p></div></Shell>
-  return <Shell><div className="mobile-wrap"><Brand/><div className="participant-status"><span>Halo,</span><h2>{profile.display_name || 'Etoser'}.</h2></div>{state.interaction_open&&prompt ? (notice==='Terkirim' ? <div className="done-card"><div className="done-mark">✓</div><span className="eyebrow">SUDAH MASUK</span><h3>Jawabanmu sudah tercatat.</h3><p>Sekarang kembali lihat layar depan. Pertanyaan berikutnya akan muncul otomatis di sini.</p></div> : <div className="prompt-card"><span className="eyebrow">LANGSUNG REFLEKSI</span><h3>{prompt.title}</h3>{prompt.type==='choice'?<div className="option-list">{prompt.options.map(o=><button key={o} onClick={()=>submit(o)} disabled={sending}>{o}</button>)}</div>:<><textarea value={answer} onChange={e=>setAnswer(e.target.value)} maxLength={prompt.maxLength||180} placeholder={prompt.placeholder}/><div className="text-meta"><span>{answer.length}/{prompt.maxLength||180}</span><button onClick={()=>submit()} disabled={sending||!answer.trim()}>Kirim langkahku</button></div></>}{notice&&notice!=='Terkirim'&&<div className="submit-note">{notice}</div>}</div>) : <div className="wait-card"><div className="pulse-ring"><i/></div><span className="eyebrow">REFLEKSI BELUM DIBUKA</span><h3>Fokus ke layar depan dulu.</h3><p>Saat fasilitator membuka refleksi, pertanyaan akan langsung muncul di sini.</p></div>}</div></Shell>
+  return <Shell><div className="mobile-wrap"><Brand/><div className="participant-status"><span>Halo,</span><h2>{profile.display_name || 'Etoser'}.</h2></div>{state.interaction_open&&prompt ? (notice==='Terkirim' ? <div className="done-card"><div className="done-mark">✓</div><span className="eyebrow">SUDAH MASUK</span><h3>Jawabanmu sudah tercatat.</h3><p>Jawabanmu tampil anonim di layar. Sekarang kembali lihat ke depan; pertanyaan berikutnya akan muncul otomatis di sini.</p></div> : <div className="prompt-card"><span className="eyebrow">REFLEKSI ANONIM</span><h3>{prompt.title}</h3>{prompt.helper&&<p className="prompt-helper">{prompt.helper}</p>}{prompt.type==='choice' ? (prompt.multiple ? <><div className="multi-option-list">{prompt.options.map(o=>{const selected=selectedChoices.includes(o);const limitReached=!selected&&selectedChoices.length>=(prompt.maxSelections||3);return <button type="button" key={o} className={cx(selected&&'selected')} onClick={()=>toggleChoice(o)} disabled={sending||limitReached}><i>{selected?'✓':''}</i><span>{o}</span></button>})}</div><div className="multi-submit"><span>{selectedChoices.length}/{prompt.maxSelections||3} dipilih</span><button onClick={()=>submit()} disabled={sending||selectedChoices.length<(prompt.minSelections||1)}>Kirim pilihanku</button></div></> : <div className="option-list">{prompt.options.map(o=><button type="button" key={o} onClick={()=>submit(o)} disabled={sending}>{o}</button>)}</div>) : <><textarea value={answer} onChange={e=>setAnswer(e.target.value)} maxLength={prompt.maxLength||180} placeholder={prompt.placeholder}/><div className="text-meta"><span>{answer.length}/{prompt.maxLength||180}</span><button onClick={()=>submit()} disabled={sending||!answer.trim()}>Kirim jawabanku</button></div></>}{notice&&notice!=='Terkirim'&&<div className="submit-note">{notice}</div>}</div>) : <div className="wait-card"><div className="pulse-ring"><i/></div><span className="eyebrow">FOKUS KE LAYAR DEPAN</span><h3>Bagian interaktif berikutnya belum dibuka.</h3><p>Saat fasilitator membuka pertanyaan baru, halaman ini berubah otomatis.</p></div>}</div></Shell>
 }
 
 function ControlApp(){

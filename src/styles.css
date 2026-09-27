@@ -293,3 +293,94 @@ button{color:inherit}
   .rhythm-grid{grid-template-columns:1fr}.week-detail-rich{max-height:50vh}
   .stage-header .brand img{width:102px!important}.brand--compact{min-width:105px}
 }
+
+
+/* ===== assessment live bubbles + official ETOS logo ===== */
+.brand{width:max-content!important;min-width:0!important;min-height:0!important;overflow:visible!important}
+.brand img{
+  display:block!important;
+  width:184px!important;
+  height:auto!important;
+  max-width:none!important;
+  max-height:none!important;
+  aspect-ratio:703/236!important;
+  object-fit:contain!important;
+  object-position:center!important;
+  overflow:visible!important;
+  clip-path:none!important;
+  visibility:visible!important;
+  opacity:1!important
+}
+.brand--compact img{width:148px!important}
+.stage-header .brand{width:156px!important;flex:0 0 156px!important;overflow:visible!important}
+.stage-header .brand img{width:148px!important}
+.loader-brand .brand img{width:210px!important}
+.final-logo .brand img{width:190px!important}
+.mobile-wrap>.brand img,.control-login .brand img{width:176px!important}
+
+.reflection-join-card{grid-template-rows:auto auto auto}
+.reflection-live-preview{grid-column:1/-1;position:relative;z-index:3;margin-top:2px;padding-top:16px;border-top:1px solid rgba(255,255,255,.1)}
+.live-preview-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:11px;color:#cfc7bc}
+.live-preview-head span{font-size:7px;font-weight:900;letter-spacing:.16em}
+.live-preview-head b{font-size:11px;color:#d5ba83}
+.bubble-wall{display:flex;flex-wrap:wrap;align-content:center;justify-content:center;gap:10px;min-height:390px;padding:12px}
+.bubble-wall.compact{min-height:0;justify-content:flex-start;padding:0;gap:7px}
+.answer-bubble{
+  width:148px;height:148px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;
+  padding:19px;border:1px solid rgba(180,147,90,.25);background:linear-gradient(145deg,#fffdf9,#f0e9df);
+  box-shadow:0 16px 38px rgba(22,20,17,.08);animation:bubbleIn .42s cubic-bezier(.2,.9,.2,1) both
+}
+.answer-bubble.bubble-size-1{width:132px;height:132px}
+.answer-bubble.bubble-size-2{width:162px;height:162px}
+.answer-bubble small{font-size:6px;font-weight:900;letter-spacing:.12em;color:#a08559;margin-bottom:7px}
+.answer-bubble strong{font-size:11px;line-height:1.28;letter-spacing:-.015em;color:#2d2924;display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;overflow:hidden}
+.bubble-wall.compact .answer-bubble{width:92px;height:92px;padding:10px;background:rgba(255,253,249,.97);box-shadow:0 8px 20px rgba(0,0,0,.12)}
+.bubble-wall.compact .answer-bubble.bubble-size-1{width:84px;height:84px}
+.bubble-wall.compact .answer-bubble.bubble-size-2{width:101px;height:101px}
+.bubble-wall.compact .answer-bubble small{font-size:5px;margin-bottom:4px}
+.bubble-wall.compact .answer-bubble strong{font-size:7px;-webkit-line-clamp:4}
+.bubble-empty{margin:auto;display:grid;justify-items:center;gap:15px;color:#918a81;font-size:11px}
+.bubble-empty i{width:92px;height:92px;border-radius:50%;border:1px dashed #c7b79e;box-shadow:0 0 0 18px rgba(180,147,90,.035)}
+@keyframes bubbleIn{from{opacity:0;transform:scale(.72) translateY(12px)}to{opacity:1;transform:scale(1) translateY(0)}}
+
+.live-answer-stage{display:grid;grid-template-rows:1fr auto;align-items:center;min-height:510px;overflow:hidden}
+.choice-summary{border-top:1px solid #e2d9cd;padding-top:14px}
+.choice-summary>span{display:block;margin-bottom:8px;font-size:7px;font-weight:900;letter-spacing:.15em;color:#8e806b}
+.choice-summary .choice-bars{display:grid;grid-template-columns:repeat(2,1fr);gap:7px}
+.choice-summary .choice-row{padding:10px 11px;grid-template-columns:25px 1fr}
+.choice-summary .choice-row strong{font-size:10px}.choice-summary .choice-row small{font-size:7px}
+.choice-summary .choice-dot{font-size:7px}
+
+.cluster-results{position:relative;min-height:560px}
+.cluster-results>.bubble-wall{position:absolute;left:0;right:0;bottom:-6px;z-index:8;justify-content:center}
+.cluster-results>.bubble-wall .answer-bubble{background:rgba(255,253,249,.96)}
+.commitment-live{grid-template-rows:auto 1fr;align-items:center}
+.commitment-live .bubble-wall{min-height:300px}
+
+.prompt-helper{margin:-8px 0 18px!important;padding:10px 12px;border-radius:12px;background:#f2ede5;color:#6f685f!important;font-size:10px!important;line-height:1.5!important}
+.multi-option-list{display:grid;gap:9px}
+.multi-option-list button{
+  display:grid;grid-template-columns:28px 1fr;align-items:center;gap:10px;width:100%;padding:13px 14px;
+  border:1px solid #d8cec0;border-radius:14px;background:#fff;text-align:left;font-weight:700;cursor:pointer;transition:.18s
+}
+.multi-option-list button i{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;border:1px solid #cdbda6;font-style:normal;font-size:11px}
+.multi-option-list button.selected{border-color:#9a7a49;background:#f5efe5;color:#4a4033;box-shadow:0 0 0 3px rgba(180,147,90,.08)}
+.multi-option-list button.selected i{background:#2a2c30;color:#fff;border-color:#2a2c30}
+.multi-option-list button:disabled:not(.selected){opacity:.42;cursor:not-allowed}
+.multi-submit{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:13px}
+.multi-submit>span{font-size:9px;color:#7d756b}
+.multi-submit button{border:0;border-radius:13px;padding:12px 14px;background:var(--dark);color:#fff;font-size:10px;font-weight:800;cursor:pointer}
+.multi-submit button:disabled{opacity:.35;cursor:not-allowed}
+
+@media(max-width:1100px){
+  .bubble-wall{min-height:300px}
+  .answer-bubble{width:126px;height:126px}.answer-bubble.bubble-size-1{width:116px;height:116px}.answer-bubble.bubble-size-2{width:138px;height:138px}
+  .cluster-results{min-height:480px}
+}
+@media(max-width:700px){
+  .brand img{width:160px!important}.brand--compact img{width:112px!important}.stage-header .brand{width:116px!important;flex-basis:116px!important}.stage-header .brand img{width:108px!important}
+  .bubble-wall{gap:7px;min-height:250px;padding:6px}.answer-bubble{width:106px;height:106px;padding:12px}.answer-bubble.bubble-size-1{width:96px;height:96px}.answer-bubble.bubble-size-2{width:116px;height:116px}
+  .answer-bubble strong{font-size:8px}.answer-bubble small{font-size:5px}
+  .choice-summary .choice-bars{grid-template-columns:1fr}
+  .reflection-live-preview .bubble-wall.compact .answer-bubble:nth-child(n+5){display:none}
+}

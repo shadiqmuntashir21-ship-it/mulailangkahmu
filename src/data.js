@@ -150,8 +150,9 @@ export const scenes = [
   { id: 'values', label: '3 Nilai Besar' },
   { id: 'idp', label: 'IDP & Coaching' },
   { id: 'reflection_join', label: 'Join & Refleksi', interaction: 'growth_start' },
-  { id: 'this_is_us', label: 'This Is Us' },
-  { id: 'growth_focus', label: 'Area Pertumbuhan', interaction: 'growth_focus' },
+  { id: 'this_is_us', label: 'Peta Kebutuhan' },
+  { id: 'program_interest', label: 'Yang Paling Dinanti', interaction: 'program_interest' },
+  { id: 'support_needed', label: 'Dukungan yang Dibutuhkan', interaction: 'support_needed' },
   { id: 'commitment', label: 'Langkah Pertama', interaction: 'commitment' },
   { id: 'finale', label: 'Final Reveal' }
 ]
@@ -160,16 +161,35 @@ export const prompts = {
   growth_start: {
     key: 'growth_start',
     type: 'choice',
-    title: 'Semester ini, bagian mana dari dirimu yang paling ingin kamu tumbuhkan?',
+    multiple: true,
+    minSelections: 2,
+    maxSelections: 3,
+    title: 'Setelah melihat perjalanan ini, pilih 2–3 area yang paling kamu butuhkan semester ini.',
+    helper: 'Pilih minimal 2 dan maksimal 3.',
     options: growthOptions,
     anonymous: true
   },
-  growth_focus: {
-    key: 'growth_focus',
+  program_interest: {
+    key: 'program_interest',
     type: 'choice',
-    title: 'Setelah melihat perjalanan ini, bagian mana yang paling kamu butuhkan?',
-    options: growthOptions,
+    title: 'Dari seluruh perjalanan tadi, bagian mana yang paling ingin kamu jalani?',
+    options: [
+      'Kajian & Tahsin Al-Qur’an',
+      'Sharing Knowledge / Bedah Film / Tokoh',
+      'Coaching & IDP',
+      'Ritme & Kebiasaan Asrama',
+      'Pembinaan Kolektif & Bonding',
+      'Khidmat & Kontribusi'
+    ],
     anonymous: true
+  },
+  support_needed: {
+    key: 'support_needed',
+    type: 'text',
+    title: 'Supaya kamu benar-benar bisa bertumbuh semester ini, dukungan apa yang paling kamu butuhkan dari pembinaan atau asrama?',
+    placeholder: 'Contoh: teman yang saling mengingatkan, coaching lebih rutin, ruang diskusi yang aman…',
+    anonymous: true,
+    maxLength: 120
   },
   commitment: {
     key: 'commitment',
