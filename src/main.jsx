@@ -120,61 +120,207 @@ function useCountdown(timerEnd) {
 function StageApp() {
   const {event,state,participants,submissions,error} = useLiveEvent({withData:true})
   const [qr,setQr] = useState('')
+  const [presenterPin,setPresenterPin] = useState(()=>sessionStorage.getItem('etos_palu_pin')||'')
+  const [showPresenterLogin,setShowPresenterLogin] = useState(false)
+  const [draftPin,setDraftPin] = useState('')
+  const [presenterBusy,setPresenterBusy] = useState(false)
+  const [presenterError,setPresenterError] = useState('')
+
   useEffect(()=>{
     let active=true
     import('qrcode').then(({default:QRCode})=>QRCode.toDataURL(
       `${location.origin}/join?room=${ROOM_CODE}`,
-      {margin:1,width:520,errorCorrectionLevel:'M',color:{dark:'#07543a',light:'#ffffff'}}
+      {margin:1,width:640,errorCorrectionLevel:'M',color:{dark:'#07543a',light:'#ffffff'}}
     )).then(url=>{if(active)setQr(url)}).catch(console.error)
     return()=>{active=false}
   },[])
+
   const left = useCountdown(state?.timer_end)
+
+  const stageControl = async(action,payload={}) => {
+    if(!presenterPin){
+      setShowPresenterLogin(true)
+      return null
+    }
+    setPresenterBusy(true)
+    setPresenterError('')
+    try{
+      const {data,error}=await supabase.rpc('etos_palu_control',{
+        p_event_code:ROOM_CODE,
+        p_pin:presenterPin,
+        p_action:action,
+        p_payload:payload
+      })
+      if(error) throw error
+      return data
+    }catch(e){
+      setPresenterError(e.message || 'Kontrol presenter gagal.')
+      if((e.message||'').toLowerCase().includes('pin')){
+        sessionStorage.removeItem('etos_palu_pin')
+        setPresenterPin('')
+        setShowPresenterLogin(true)
+      }
+      return null
+    }finally{
+      setPresenterBusy(false)
+    }
+  }
+
   if (error) return <ErrorCard message={error}/>
   if (!event || !state) return <Loader label="Menghubungkan layar utama…"/>
+
   const scene = state.scene || 'welcome'
   const byPrompt = key => submissions.filter(s=>s.prompt_key===key)
-  const current = scenes.find(s=>s.id===scene) || scenes[0]
+  const currentIndex = Math.max(0, scenes.findIndex(s=>s.id===scene))
+  const current = scenes[currentIndex] || scenes[0]
+  const interactiveStarted = currentIndex >= scenes.findIndex(s=>s.id==='reflection_join')
+
+  const selectScene = async(index) => {
+    const nextIndex=Math.max(0,Math.min(scenes.length-1,index))
+    const next=scenes[nextIndex]
+    if(!presenterPin){setShowPresenterLogin(true);return}
+    if(state.interaction_open && state.interaction_key !== next.interaction){
+      await stageControl('close_interaction')
+    }
+    await stageControl('set_scene',{scene:next.id})
+    if(next.interaction){
+      await stageControl('open_interaction',{interaction_key:next.interaction})
+    }
+  }
+
+  useEffect(()=>{
+    if(!presenterPin) return
+    const onKey=(e)=>{
+      if(e.target?.tagName==='INPUT') return
+      if(e.key==='ArrowRight' || e.key===' ' || e.key==='PageDown'){
+        e.preventDefault();selectScene(currentIndex+1)
+      }
+      if(e.key==='ArrowLeft' || e.key==='PageUp'){
+        e.preventDefault();selectScene(currentIndex-1)
+      }
+    }
+    window.addEventListener('keydown',onKey)
+    return()=>window.removeEventListener('keydown',onKey)
+  },[presenterPin,currentIndex,state.interaction_open,state.interaction_key])
+
+  const unlockPresenter=async()=>{
+    setPresenterError('')
+    try{
+      const {error}=await supabase.rpc('etos_palu_control',{
+        p_event_code:ROOM_CODE,p_pin:draftPin,p_action:'set_scene',p_payload:{scene}
+      })
+      if(error) throw error
+      sessionStorage.setItem('etos_palu_pin',draftPin)
+      setPresenterPin(draftPin)
+      setDraftPin('')
+      setShowPresenterLogin(false)
+    }catch(e){setPresenterError('PIN presenter tidak valid.')}
+  }
+
   return <Shell stage>
-    <header className="stage-header"><Brand compact/><div className="stage-meta"><span>SEMESTER 2 · 2026</span><i/><span>{participants.length} Etoser bergabung</span></div></header>
+    <header className="stage-header">
+      <Brand compact/>
+      <div className="stage-meta">
+        <span>SEMESTER 2 · 2026</span>
+        <i/>
+        <span>{interactiveStarted ? `${participants.length} Etoser bergabung` : 'PEMBUKAAN PEMBINAAN'}</span>
+        <button className="presenter-link" onClick={()=>setShowPresenterLogin(true)}>{presenterPin?'PRESENTER ON':'PRESENTER'}</button>
+      </div>
+    </header>
+
     <section className="stage-canvas" key={`${scene}-${state.revision}`}>
-      {scene==='welcome' && <WelcomeScene participants={participants} qr={qr}/>}
-      {scene==='reflection' && <QuestionScene prompt={prompts.growth_start} submissions={byPrompt('growth_start')} open={state.interaction_open} reveal={state.reveal}/>}
-      {scene==='this_is_us' && <ClusterScene submissions={byPrompt('growth_start')} title="Inilah kita hari ini." subtitle="Bukan untuk dinilai. Ini titik keberangkatan kita."/>}
-      {scene==='journey_reveal' && <StatementScene eyebrow="ETOS ID PALU · SEMESTER 2 2026" lines={['Kita mungkin memulai dari titik yang berbeda.','Tetapi kita akan menjalani satu perjalanan bersama.']} accent="MULAI LANGKAHMU"/>}
+      {scene==='welcome' && <WelcomeScene/>}
+      {scene==='journey_reveal' && <StatementScene eyebrow="ETOS ID PALU · SEMESTER 2 2026" lines={['Bukan sekadar rangkaian agenda.','Ini perjalanan untuk bertumbuh dan berdampak.']} accent="PERJALANAN KITA DIMULAI"/>}
       {scene==='two_spaces' && <TwoSpacesScene/>}
       {scene==='regional' && <RegionalScene/>}
       {scene==='dorm_intro' && <StatementScene eyebrow="KEHIDUPAN ASRAMA" lines={['Pertumbuhan tidak hanya terjadi ketika forum dimulai.','Ia dibentuk dari apa yang kita lakukan berulang kali.']} accent="10 PEKAN BERTUMBUH BERSAMA"/>}
       {scene==='ten_weeks' && <TenWeeksScene/>}
       {scene==='rhythms' && <RhythmScene/>}
       {scene==='values' && <ValuesScene/>}
-      {scene==='growth_focus' && <QuestionScene prompt={prompts.growth_focus} submissions={byPrompt('growth_focus')} open={state.interaction_open} reveal={state.reveal}/>}
       {scene==='idp' && <IdpScene/>}
+      {scene==='reflection_join' && <ReflectionJoinScene qr={qr} participants={participants} submissions={byPrompt('growth_start')} open={state.interaction_open}/>}
+      {scene==='this_is_us' && <ClusterScene submissions={byPrompt('growth_start')} title="Inilah kita hari ini." subtitle="Bukan untuk dinilai. Ini titik keberangkatan kita."/>}
+      {scene==='growth_focus' && <QuestionScene prompt={prompts.growth_focus} submissions={byPrompt('growth_focus')} open={state.interaction_open} reveal={state.reveal}/>}
       {scene==='commitment' && <CommitmentScene submissions={byPrompt('commitment')} open={state.interaction_open} reveal={state.reveal} spotlightId={state.spotlight_submission_id}/>}
       {scene==='finale' && <FinaleScene participants={participants} commitments={byPrompt('commitment')}/>}
     </section>
-    <footer className="stage-footer"><div>{String(scenes.findIndex(s=>s.id===current.id)+1).padStart(2,'0')} / {scenes.length}</div><LineMark progress={(scenes.findIndex(s=>s.id===current.id)+1)/scenes.length}/><div>{left>0 ? `${left}s` : current.label}</div></footer>
+
+    <footer className="stage-footer">
+      <div>{String(currentIndex+1).padStart(2,'0')} / {scenes.length}</div>
+      <LineMark progress={(currentIndex+1)/scenes.length}/>
+      <div>{left>0 ? `${left}s` : current.label}</div>
+    </footer>
+
+    <div className={cx('presenter-controls',presenterPin&&'is-on')}>
+      <button disabled={currentIndex===0||presenterBusy} onClick={()=>selectScene(currentIndex-1)} aria-label="Sebelumnya">←</button>
+      <span><small>PRESENTER</small><b>{current.label}</b></span>
+      <button disabled={currentIndex===scenes.length-1||presenterBusy} onClick={()=>selectScene(currentIndex+1)} aria-label="Berikutnya">→</button>
+    </div>
+
     {left>0 && <div className="timer-pill">{left}</div>}
+
+    {showPresenterLogin && <div className="presenter-modal" onClick={()=>setShowPresenterLogin(false)}>
+      <div className="presenter-dialog" onClick={e=>e.stopPropagation()}>
+        <Brand compact/>
+        <span className="eyebrow">PRESENTER MODE</span>
+        <h3>Kontrol langsung dari layar ini.</h3>
+        <p>Masukkan PIN sekali. Setelah itu gunakan tombol panah di layar, ← → keyboard, atau Space untuk lanjut.</p>
+        <input autoFocus inputMode="numeric" type="password" value={draftPin} onChange={e=>setDraftPin(e.target.value)} onKeyDown={e=>e.key==='Enter'&&unlockPresenter()} placeholder="PIN moderator"/>
+        {presenterError&&<div className="presenter-error">{presenterError}</div>}
+        <div className="presenter-dialog-actions">
+          <button className="ghost" onClick={()=>setShowPresenterLogin(false)}>Batal</button>
+          <button onClick={unlockPresenter}>Aktifkan Presenter</button>
+        </div>
+      </div>
+    </div>}
   </Shell>
 }
 
-function WelcomeScene({participants,qr}) {
-  return <div className="scene scene-welcome">
-    <div className="hero-copy">
+function WelcomeScene() {
+  return <div className="scene scene-opening">
+    <div className="opening-copy">
       <span className="event-chip">ETOS ID PALU · 27 SEPTEMBER 2026</span>
       <span className="eyebrow">PEMBUKAAN PEMBINAAN</span>
       <h1>Mulai<br/><em>Langkahmu.</em></h1>
       <p>Awal Langkah, Tumbuh Berdampak.</p>
-      <div className="hero-route"><i/><span>Refleksi</span><i/><span>Pembinaan</span><i/><span>Komitmen</span></div>
+      <div className="opening-note"><i/><span>Semester 2 · September—Desember 2026</span></div>
     </div>
-    <div className="join-panel">
-      <div className="join-panel-head"><span>JOIN THE JOURNEY</span><b>Scan. Masuk. Lihat layar.</b></div>
-      <div className="join-panel-grid">
-        <div className="qr-card">{qr ? <img src={qr} alt="QR untuk bergabung" /> : <div className="qr-skeleton"/>}<b>Scan untuk bergabung</b><span>{location.origin.replace(/^https?:\/\//,'')}/join</span></div>
-        <div className="join-count"><small>LIVE PARTICIPANTS</small><strong>{participants.length}</strong><span>Etoser telah<br/>bergabung</span><div className="count-pulse"><i/></div></div>
+    <div className="journey-visual">
+      <div className="journey-kicker">PERJALANAN SEMESTER 2</div>
+      <div className="journey-line">
+        <i className="journey-progress"/>
+        <div className="journey-node active"><span>01</span><b>Mulai</b><small>September</small></div>
+        <div className="journey-node"><span>02</span><b>Bertumbuh</b><small>Oktober</small></div>
+        <div className="journey-node"><span>03</span><b>Menguat</b><small>November</small></div>
+        <div className="journey-node"><span>04</span><b>Berdampak</b><small>Desember</small></div>
       </div>
-      <div className="join-panel-foot"><span>ROOM</span><b>{ROOM_CODE}</b><i/><span>LIVE EXPERIENCE</span></div>
+      <div className="journey-quote">“Yang kita bangun bukan sekadar agenda, tetapi kebiasaan, karakter, dan arah hidup.”</div>
     </div>
-    <div className="participant-river">{participants.slice(0,48).map((p,i)=><span key={p.id} style={{'--i':i}} title={p.display_name}/>)}</div>
+  </div>
+}
+
+function ReflectionJoinScene({qr,participants,submissions,open}) {
+  return <div className="scene reflection-join-scene">
+    <div className="reflection-intro">
+      <span className="eyebrow">SEKARANG GILIRANMU</span>
+      <h2>Kita sudah melihat<br/>perjalanannya.</h2>
+      <p>Sekarang masuk ke refleksi. Scan QR, tulis nama, dan pertanyaan pertama langsung muncul di HP-mu.</p>
+      <div className="reflection-question">
+        <small>PERTANYAAN 01</small>
+        <strong>{prompts.growth_start.title}</strong>
+      </div>
+      <div className={cx('live-badge',open&&'is-live')}><i/>{open?'REFLEKSI DIBUKA':'MENYIAPKAN REFLEKSI'} · {submissions.length} JAWABAN</div>
+    </div>
+    <div className="reflection-join-card">
+      <div className="reflection-qr">{qr ? <img src={qr} alt="QR untuk masuk refleksi"/> : <div className="qr-skeleton"/>}</div>
+      <div className="reflection-join-meta">
+        <span>SCAN UNTUK MASUK</span>
+        <h3>{participants.length}</h3>
+        <p>Etoser sudah bergabung</p>
+        <div><b>ROOM {ROOM_CODE}</b><i/></div>
+      </div>
+      <div className="reflection-join-foot">Setelah bergabung, kamu langsung menjawab. Tidak perlu menunggu.</div>
+    </div>
   </div>
 }
 
@@ -264,7 +410,7 @@ function ParticipantApp(){
   if(!event||!state)return <Loader label="Membuka ruang ETOS ID Palu…"/>
   if(!profile)return <Shell><div className="mobile-wrap"><Brand/><div className="join-hero"><span className="eyebrow">PEMBUKAAN PEMBINAAN · 2026</span><h1>Mulai<br/><em>Langkahmu.</em></h1><p>Masuk ke perjalanan ETOS ID Palu.</p></div><form className="join-form" onSubmit={join}><label>Nama / panggilan<input value={name} onChange={e=>setName(e.target.value)} maxLength={40} placeholder="Tulis namamu" required/></label><label>Angkatan <small>(opsional)</small><input value={cohort} onChange={e=>setCohort(e.target.value)} maxLength={30} placeholder="Contoh: ETOS 2026"/></label><button disabled={sending}>{sending?'Menghubungkan…':'Bergabung'}</button>{notice&&<p className="form-note">{notice}</p>}</form></div></Shell>
   if(event.status==='ended')return <Shell><div className="mobile-wrap mobile-center"><Brand/><span className="eyebrow">PERJALANAN HARI INI SELESAI</span><h2>Terima kasih sudah mengambil langkah pertama.</h2><p>Sampai jumpa di perjalanan pembinaan ETOS ID Palu berikutnya.</p></div></Shell>
-  return <Shell><div className="mobile-wrap"><Brand/><div className="participant-status"><span>Halo,</span><h2>{profile.display_name || 'Etoser'}.</h2></div>{state.interaction_open&&prompt ? <div className="prompt-card"><span className="eyebrow">SEKARANG GILIRANMU</span><h3>{prompt.title}</h3>{prompt.type==='choice'?<div className="option-list">{prompt.options.map(o=><button key={o} onClick={()=>submit(o)} disabled={sending}>{o}</button>)}</div>:<><textarea value={answer} onChange={e=>setAnswer(e.target.value)} maxLength={prompt.maxLength||180} placeholder={prompt.placeholder}/><div className="text-meta"><span>{answer.length}/{prompt.maxLength||180}</span><button onClick={()=>submit()} disabled={sending||!answer.trim()}>Kirim langkahku</button></div></>}{notice&&<div className={cx('submit-note',notice==='Terkirim'&&'ok')}>{notice==='Terkirim'?'✓ Jawabanmu sudah masuk.':notice}</div>}</div>:<div className="wait-card"><div className="pulse-ring"><i/></div><span className="eyebrow">KAMU SUDAH BERGABUNG</span><h3>Simpan HP-mu.<br/>Perhatikan layar di depan.</h3><p>Interaksi berikutnya akan muncul otomatis di sini.</p></div>}</div></Shell>
+  return <Shell><div className="mobile-wrap"><Brand/><div className="participant-status"><span>Halo,</span><h2>{profile.display_name || 'Etoser'}.</h2></div>{state.interaction_open&&prompt ? (notice==='Terkirim' ? <div className="done-card"><div className="done-mark">✓</div><span className="eyebrow">SUDAH MASUK</span><h3>Jawabanmu sudah tercatat.</h3><p>Sekarang kembali lihat layar depan. Pertanyaan berikutnya akan muncul otomatis di sini.</p></div> : <div className="prompt-card"><span className="eyebrow">LANGSUNG REFLEKSI</span><h3>{prompt.title}</h3>{prompt.type==='choice'?<div className="option-list">{prompt.options.map(o=><button key={o} onClick={()=>submit(o)} disabled={sending}>{o}</button>)}</div>:<><textarea value={answer} onChange={e=>setAnswer(e.target.value)} maxLength={prompt.maxLength||180} placeholder={prompt.placeholder}/><div className="text-meta"><span>{answer.length}/{prompt.maxLength||180}</span><button onClick={()=>submit()} disabled={sending||!answer.trim()}>Kirim langkahku</button></div></>}{notice&&notice!=='Terkirim'&&<div className="submit-note">{notice}</div>}</div>) : <div className="wait-card"><div className="pulse-ring"><i/></div><span className="eyebrow">REFLEKSI BELUM DIBUKA</span><h3>Fokus ke layar depan dulu.</h3><p>Saat fasilitator membuka refleksi, pertanyaan akan langsung muncul di sini.</p></div>}</div></Shell>
 }
 
 function ControlApp(){
@@ -288,10 +434,19 @@ function ControlApp(){
     }catch(e){setNotice(e.message);throw e}finally{setBusy(false)}
   }
   if(!pin)return <Shell><div className="control-login"><Brand/><span className="eyebrow">CONTROL ROOM</span><h2>Masukkan PIN moderator</h2><input inputMode="numeric" type="password" value={draftPin} onChange={e=>setDraftPin(e.target.value)} placeholder="••••••"/><button onClick={()=>{sessionStorage.setItem('etos_palu_pin',draftPin);setPin(draftPin)}}>Masuk</button></div></Shell>
-  const move=dir=>{const next=scenes[Math.max(0,Math.min(scenes.length-1,sceneIndex+dir))];return act('set_scene',{scene:next.id})}
+  const selectControlScene=async(next)=>{
+    if(state.interaction_open && state.interaction_key !== next.interaction){
+      await act('close_interaction')
+    }
+    await act('set_scene',{scene:next.id})
+    if(next.interaction){
+      await act('open_interaction',{interaction_key:next.interaction})
+    }
+  }
+  const move=dir=>{const next=scenes[Math.max(0,Math.min(scenes.length-1,sceneIndex+dir))];return selectControlScene(next)}
   const promptKey=scene.interaction
   const promptSubs=submissions.filter(s=>s.prompt_key===promptKey)
-  return <Shell><div className="control-wrap"><header className="control-head"><Brand compact/><div><span className={cx('status-dot',event.status)}/><b>{event.status.toUpperCase()}</b><span>{participants.length} peserta</span></div><button className="ghost" onClick={()=>{sessionStorage.removeItem('etos_palu_pin');setPin('')}}>Keluar</button></header><div className="control-grid"><aside className="scene-list"><span className="eyebrow">SCENE</span>{scenes.map((s,i)=><button className={cx(s.id===state.scene&&'active')} key={s.id} onClick={()=>act('set_scene',{scene:s.id})}><span>{String(i+1).padStart(2,'0')}</span>{s.label}</button>)}</aside><section className="control-main"><div className="control-title"><div><span className="eyebrow">SEKARANG DI LAYAR</span><h1>{scene.label}</h1></div><div className="nav-buttons"><button disabled={sceneIndex===0||busy} onClick={()=>move(-1)}>←</button><button disabled={sceneIndex===scenes.length-1||busy} onClick={()=>move(1)}>→</button></div></div><div className="control-actions"><button onClick={()=>act('set_status',{status:event.status==='live'?'draft':'live'})}>{event.status==='live'?'Kembalikan Draft':'Go Live'}</button>{promptKey&&<button className={state.interaction_open?'danger':''} onClick={()=>act(state.interaction_open?'close_interaction':'open_interaction',{interaction_key:promptKey})}>{state.interaction_open?'Tutup Respons':'Buka Respons'}</button>}{promptKey&&<button onClick={()=>act('set_reveal',{reveal:!state.reveal})}>{state.reveal?'Sembunyikan Hasil':'Reveal Hasil'}</button>}<button onClick={()=>act('set_timer',{seconds:30})}>Timer 30s</button><button onClick={()=>act('set_timer',{seconds:0})}>Clear Timer</button></div><div className="control-panels"><div className="panel"><span className="eyebrow">LIVE STATUS</span><dl><div><dt>Scene revision</dt><dd>{state.revision}</dd></div><div><dt>Respons dibuka</dt><dd>{state.interaction_open?'Ya':'Tidak'}</dd></div><div><dt>Reveal</dt><dd>{state.reveal?'Ya':'Tidak'}</dd></div><div><dt>Peserta</dt><dd>{participants.length}</dd></div><div><dt>Respons scene</dt><dd>{promptSubs.length}</dd></div></dl></div><div className="panel"><span className="eyebrow">RESPONS TERBARU</span><div className="response-list">{promptSubs.slice(-7).reverse().map(s=><button key={s.id} onClick={()=>act('spotlight',{submission_id:s.id})}><span>{s.display_name||'Anonim'}</span><p>{s.response_value}</p></button>)}{!promptSubs.length&&<p className="muted">Belum ada respons pada scene ini.</p>}</div>{state.spotlight_submission_id&&<button className="ghost full" onClick={()=>act('clear_spotlight')}>Tutup Spotlight</button>}</div></div>{notice&&<div className="control-notice">{notice}</div>}<div className="control-footer"><button className="ghost" onClick={()=>window.open('/stage','_blank')}>Buka Stage ↗</button><button className="ghost" onClick={()=>window.open('/join?room=PALU26','_blank')}>Buka Participant ↗</button><button className="danger-outline" onClick={()=>act('reset_live')}>Reset Scene</button><button className="danger-outline" onClick={()=>act('set_status',{status:'ended'})}>Akhiri Event</button></div></section></div></div></Shell>
+  return <Shell><div className="control-wrap"><header className="control-head"><Brand compact/><div><span className={cx('status-dot',event.status)}/><b>{event.status.toUpperCase()}</b><span>{participants.length} peserta</span></div><button className="ghost" onClick={()=>{sessionStorage.removeItem('etos_palu_pin');setPin('')}}>Keluar</button></header><div className="control-grid"><aside className="scene-list"><span className="eyebrow">SCENE</span>{scenes.map((s,i)=><button className={cx(s.id===state.scene&&'active')} key={s.id} onClick={()=>selectControlScene(s)}><span>{String(i+1).padStart(2,'0')}</span>{s.label}</button>)}</aside><section className="control-main"><div className="control-title"><div><span className="eyebrow">SEKARANG DI LAYAR</span><h1>{scene.label}</h1></div><div className="nav-buttons"><button disabled={sceneIndex===0||busy} onClick={()=>move(-1)}>←</button><button disabled={sceneIndex===scenes.length-1||busy} onClick={()=>move(1)}>→</button></div></div><div className="control-actions"><button onClick={()=>act('set_status',{status:event.status==='live'?'draft':'live'})}>{event.status==='live'?'Kembalikan Draft':'Go Live'}</button>{promptKey&&<button className={state.interaction_open?'danger':''} onClick={()=>act(state.interaction_open?'close_interaction':'open_interaction',{interaction_key:promptKey})}>{state.interaction_open?'Tutup Respons':'Buka Respons'}</button>}{promptKey&&<button onClick={()=>act('set_reveal',{reveal:!state.reveal})}>{state.reveal?'Sembunyikan Hasil':'Reveal Hasil'}</button>}<button onClick={()=>act('set_timer',{seconds:30})}>Timer 30s</button><button onClick={()=>act('set_timer',{seconds:0})}>Clear Timer</button></div><div className="control-panels"><div className="panel"><span className="eyebrow">LIVE STATUS</span><dl><div><dt>Scene revision</dt><dd>{state.revision}</dd></div><div><dt>Respons dibuka</dt><dd>{state.interaction_open?'Ya':'Tidak'}</dd></div><div><dt>Reveal</dt><dd>{state.reveal?'Ya':'Tidak'}</dd></div><div><dt>Peserta</dt><dd>{participants.length}</dd></div><div><dt>Respons scene</dt><dd>{promptSubs.length}</dd></div></dl></div><div className="panel"><span className="eyebrow">RESPONS TERBARU</span><div className="response-list">{promptSubs.slice(-7).reverse().map(s=><button key={s.id} onClick={()=>act('spotlight',{submission_id:s.id})}><span>{s.display_name||'Anonim'}</span><p>{s.response_value}</p></button>)}{!promptSubs.length&&<p className="muted">Belum ada respons pada scene ini.</p>}</div>{state.spotlight_submission_id&&<button className="ghost full" onClick={()=>act('clear_spotlight')}>Tutup Spotlight</button>}</div></div>{notice&&<div className="control-notice">{notice}</div>}<div className="control-footer"><button className="ghost" onClick={()=>window.open('/stage','_blank')}>Buka Stage ↗</button><button className="ghost" onClick={()=>window.open('/join?room=PALU26','_blank')}>Buka Participant ↗</button><button className="danger-outline" onClick={()=>act('reset_live')}>Reset Scene</button><button className="danger-outline" onClick={()=>act('set_status',{status:'ended'})}>Akhiri Event</button></div></section></div></div></Shell>
 }
 
 function Landing(){return <Shell><div className="landing"><Brand/><span className="eyebrow">ETOS ID PALU · SEMESTER 2 2026</span><h1>Mulai<br/><em>Langkahmu.</em></h1><p>Awal Langkah, Tumbuh Berdampak.</p><div className="landing-actions"><a href="/join?room=PALU26">Bergabung sebagai peserta</a><a className="secondary" href="/stage">Buka layar utama</a></div><small>Untuk fasilitator, buka <b>/control</b>.</small></div></Shell>}
