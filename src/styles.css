@@ -496,3 +496,75 @@ button{color:inherit}
   .brand--compact span{font-size:5px!important}
   .stage-meta{gap:6px}
 }
+
+
+/* ===== NO LOGO MODE ===== */
+.brand,.brand--text,.brand--compact,.loader-brand{display:none!important}
+
+.stage-context{
+  display:grid;
+  gap:3px;
+  min-width:210px;
+  line-height:1
+}
+.stage-context span{
+  font-size:7px;
+  font-weight:900;
+  letter-spacing:.18em;
+  color:#8a8074
+}
+.stage-context b{
+  font-size:13px;
+  letter-spacing:-.02em;
+  color:#1d2024
+}
+.control-context{
+  display:grid;
+  gap:3px;
+  line-height:1
+}
+.control-context strong{
+  font-size:11px;
+  letter-spacing:.12em
+}
+.control-context span{
+  font-size:7px;
+  letter-spacing:.14em;
+  color:#8a8178
+}
+.final-center{
+  position:relative;
+  z-index:4;
+  width:48%;
+  height:48%;
+  border-radius:50%;
+  display:grid;
+  place-items:center;
+  align-content:center;
+  background:#fffdf9;
+  box-shadow:var(--shadow-soft)
+}
+.final-center strong{
+  font-size:clamp(54px,6vw,92px);
+  line-height:.82;
+  letter-spacing:-.07em;
+  color:#332f2a
+}
+.final-center span{
+  margin-top:10px;
+  font-size:8px;
+  font-weight:900;
+  letter-spacing:.22em;
+  color:#9a7a49
+}
+.join-hero{margin-top:30px!important}
+.mobile-center{padding-top:28px}
+.control-login{padding-top:20px}
+.landing>.eyebrow{margin-bottom:12px}
+
+@media(max-width:700px){
+  .stage-context{min-width:125px}
+  .stage-context span{font-size:5px}
+  .stage-context b{font-size:10px}
+  .control-context span{display:none}
+}
