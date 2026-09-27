@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { createClient } from '@supabase/supabase-js'
-import QRCode from 'qrcode'
 import { ROOM_CODE, scenes, prompts, growthOptions, weeks, regionalMilestones, rhythms } from './data'
 import './styles.css'
 
@@ -12,7 +11,7 @@ const cx = (...xs) => xs.filter(Boolean).join(' ')
 
 function Brand({compact=false}) {
   return <div className={cx('brand', compact && 'brand--compact')}>
-    <img src="/etos-id.png" alt="ETOS ID" />
+    <img src="/etos-id.png" alt="ETOS ID" decoding="async" fetchPriority="high" />
     <span>Palu</span>
   </div>
 }
@@ -88,7 +87,7 @@ function useLiveEvent({withData=false}={}) {
             if (active) { setEvent(freshEvent); setState(freshState) }
             if (withData) await refreshData()
           } catch (e) { console.error(e) }
-        }, 3000)
+        }, withData ? 2400 : 5000)
       } catch (e) { if (active) setError(e.message || 'Gagal terhubung') }
     })()
     return ()=>{ active=false; if(channel) supabase.removeChannel(channel); if(timer) clearInterval(timer) }
@@ -97,7 +96,12 @@ function useLiveEvent({withData=false}={}) {
 }
 
 function Loader({label='Menyiapkan perjalanan…'}) {
-  return <Shell><div className="center-card"><Brand/><div className="spinner"/><p>{label}</p></div></Shell>
+  return <Shell><div className="premium-loader">
+    <div className="loader-brand"><Brand/></div>
+    <div className="loader-orbit"><i/><i/><i/></div>
+    <div className="loader-copy"><strong>Mulai Langkahmu</strong><span>{label}</span></div>
+    <div className="loader-track"><i/></div>
+  </div></Shell>
 }
 
 function ErrorCard({message}) {
@@ -116,7 +120,14 @@ function useCountdown(timerEnd) {
 function StageApp() {
   const {event,state,participants,submissions,error} = useLiveEvent({withData:true})
   const [qr,setQr] = useState('')
-  useEffect(()=>{ QRCode.toDataURL(`${location.origin}/join?room=${ROOM_CODE}`, {margin:1,width:360,color:{dark:'#0b5138',light:'#ffffff'}}).then(setQr) },[])
+  useEffect(()=>{
+    let active=true
+    import('qrcode').then(({default:QRCode})=>QRCode.toDataURL(
+      `${location.origin}/join?room=${ROOM_CODE}`,
+      {margin:1,width:520,errorCorrectionLevel:'M',color:{dark:'#07543a',light:'#ffffff'}}
+    )).then(url=>{if(active)setQr(url)}).catch(console.error)
+    return()=>{active=false}
+  },[])
   const left = useCountdown(state?.timer_end)
   if (error) return <ErrorCard message={error}/>
   if (!event || !state) return <Loader label="Menghubungkan layar utama…"/>
@@ -148,8 +159,21 @@ function StageApp() {
 
 function WelcomeScene({participants,qr}) {
   return <div className="scene scene-welcome">
-    <div className="hero-copy"><span className="eyebrow">PEMBUKAAN PEMBINAAN · ETOS ID PALU</span><h1>Mulai<br/><em>Langkahmu.</em></h1><p>Awal Langkah, Tumbuh Berdampak.</p></div>
-    <div className="welcome-side"><div className="qr-card">{qr && <img src={qr} alt="QR Join"/>}<b>Scan untuk bergabung</b><span>{location.origin.replace(/^https?:\/\//,'')}</span></div><div className="join-count"><strong>{participants.length}</strong><span>Etoser<br/>telah bergabung</span></div></div>
+    <div className="hero-copy">
+      <span className="event-chip">ETOS ID PALU · 27 SEPTEMBER 2026</span>
+      <span className="eyebrow">PEMBUKAAN PEMBINAAN</span>
+      <h1>Mulai<br/><em>Langkahmu.</em></h1>
+      <p>Awal Langkah, Tumbuh Berdampak.</p>
+      <div className="hero-route"><i/><span>Refleksi</span><i/><span>Pembinaan</span><i/><span>Komitmen</span></div>
+    </div>
+    <div className="join-panel">
+      <div className="join-panel-head"><span>JOIN THE JOURNEY</span><b>Scan. Masuk. Lihat layar.</b></div>
+      <div className="join-panel-grid">
+        <div className="qr-card">{qr ? <img src={qr} alt="QR untuk bergabung" /> : <div className="qr-skeleton"/>}<b>Scan untuk bergabung</b><span>{location.origin.replace(/^https?:\/\//,'')}/join</span></div>
+        <div className="join-count"><small>LIVE PARTICIPANTS</small><strong>{participants.length}</strong><span>Etoser telah<br/>bergabung</span><div className="count-pulse"><i/></div></div>
+      </div>
+      <div className="join-panel-foot"><span>ROOM</span><b>{ROOM_CODE}</b><i/><span>LIVE EXPERIENCE</span></div>
+    </div>
     <div className="participant-river">{participants.slice(0,48).map((p,i)=><span key={p.id} style={{'--i':i}} title={p.display_name}/>)}</div>
   </div>
 }
